@@ -2,6 +2,7 @@ package com.example.howgarts.model;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.ToString;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 @Data
@@ -22,6 +23,7 @@ public class Mascota {
     @OneToOne
     @JoinColumn(name = "id_estudiante",nullable = false)
     @JsonBackReference("estudiante-mascota")
+    @ToString.Exclude
     private Estudiante estudiante;
 
 

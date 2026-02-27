@@ -1,4 +1,4 @@
-package Services;
+package com.example.howgarts.Services;
 import com.example.howgarts.model.Estudiante;
 import com.example.howgarts.model.Mascota;
 import com.example.howgarts.repository.EstudianteRepository;
@@ -44,14 +44,15 @@ public class EstudianteServiceTest {
 
     @Test
     void eliminarEstudiante_Exito() {
+        // GIVEN
         Long id = 1L;
         when(estudianteRepository.findById(id)).thenReturn(Optional.of(estudianteTest));
 
-
+        // WHEN
         estudianteService.eliminarEstudiante(id);
 
-
-        verify(mascotaRepository, times(1)).delete(estudianteTest.getMascota());
+        // THEN
         verify(estudianteRepository, times(1)).delete(estudianteTest);
+        // Ya no verificamos mascotaRepository porque la cascada lo gestiona
     }
 }

@@ -1,74 +1,63 @@
 package com.example.howgarts.Repositories;
 
-
 import com.example.howgarts.model.Casa;
 import com.example.howgarts.model.Estudiante;
 import com.example.howgarts.model.Mascota;
 import com.example.howgarts.repository.EstudianteRepository;
-import com.example.howgarts.repository.MascotaRepository;
-import org.junit.jupiter.api.BeforeEach;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.test.context.ActiveProfiles;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
 
-@DataJpaTest // Usa H2 en memoria, no necesita PostgreSQL arrancado
+@DataJpaTest // Configura una BD en memoria y carga solo entidades y repositorios
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
+@ActiveProfiles("test")
 public class EstudianteRepositoryTest {
-
-    @Autowired
-    private TestEntityManager entityManager;
 
     @Autowired
     private EstudianteRepository estudianteRepository;
 
     @Autowired
-    private MascotaRepository mascotaRepository;
+    private EntityManager entityManager; // Usamos el motor de JPA para consultas directas
 
-    private Estudiante estudianteTest;
-    private Mascota mascotaTest;
-
-    @BeforeEach
-    void setUp() {
-        // Preparamos una casa
+    @Test
+    void eliminarEstudiante_DebeEliminarMascotaEnCascada() {
+        // 1. GIVEN: Preparamos los datos
         Casa casa = new Casa();
         casa.setNombre("Gryffindor");
         entityManager.persist(casa);
 
-        // Preparamos el estudiante
-        estudianteTest = new Estudiante();
-        estudianteTest.setNombre("Harry");
-        estudianteTest.setApellido("Potter");
-        estudianteTest.setAnyoCurso(1L);
-        estudianteTest.setCasa(casa);
-        entityManager.persist(estudianteTest);
+        Estudiante estudiante = new Estudiante();
+        estudiante.setNombre("Harry");
+        estudiante.setApellido("Potter");
+        estudiante.setAnyoCurso(1L);
+        estudiante.setCasa(casa);
 
-        // Preparamos la mascota y la asociamos al estudiante
-        mascotaTest = new Mascota();
-        mascotaTest.setNombre("Hedwig");
-        mascotaTest.setEstudiante(estudianteTest);
-        entityManager.persist(mascotaTest);
+        Mascota mascota = new Mascota();
+        mascota.setNombre("Hedwig");
+        mascota.setEspecie("Lechuza");
 
-        entityManager.flush();
-    }
+        estudiante.setMascota(mascota); // Sincronizamos la relación bidireccional
 
-    @Test
-    void alBorrarEstudiante_suMascotaTambienDebeDesaparecer() {
-        // GIVEN: Harry y Hedwig existen en la base de datos
-        Long harryId = estudianteTest.getIdEstudiante();
-        Long hedwigId = mascotaTest.getId();
+        // Persistimos el estudiante (y por cascada, la mascota)
+        Estudiante guardado = estudianteRepository.save(estudiante);
+        Long idEstudiante = guardado.getIdEstudiante();
+        Long idMascota = guardado.getMascota().getId();
 
-        assertThat(estudianteRepository.findById(harryId)).isPresent();
-        assertThat(mascotaRepository.findById(hedwigId)).isPresent();
-
-        // WHEN: Eliminamos a Harry Potter
-        estudianteRepository.deleteById(harryId);
-        entityManager.flush();
+        // 2. WHEN: Ejecutamos la acción de borrado
+        estudianteRepository.delete(guardado);
+        estudianteRepository.flush();
         entityManager.clear();
 
-        // THEN: Harry y Hedwig ya no existen (borrado en cascada)
-        assertThat(estudianteRepository.findById(harryId)).isEmpty();
-        assertThat(mascotaRepository.findById(hedwigId)).isEmpty();
+        // 3. THEN: Ambos han desaparecido de la base de datos
+        Estudiante estudianteBD = entityManager.find(Estudiante.class, idEstudiante);
+        Mascota mascotaBD = entityManager.find(Mascota.class, idMascota);
+
+        assertNull(estudianteBD);
+        assertNull(mascotaBD);
     }
 }
